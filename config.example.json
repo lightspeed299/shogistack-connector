@@ -1,0 +1,10 @@
+{
+  "enginePath": "ここにエンジンのパスを記載してください",
+  "apiKey": "ここにAPIキーを記載してください",
+  "engineOptions": {
+    "USI_Hash": 1024,
+    "Threads": 4,
+    "MultiPV": 2,
+    "fv_scale": 36
+  }
+}
