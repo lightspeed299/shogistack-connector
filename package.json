@@ -1,25 +1,28 @@
 {
-  "name": "@shogistack/connector",
-  "version": "1.0.0",
-  "description": "ShogiStack Connector Client",
+  "name": "shogistack-connector",
+  "version": "3.1.0",
+  "description": "ShogiStack Engine Connector",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "build": "pkg index.js --targets node16-win-x64 --output shogistack-connector.exe"
-  },
+  "bin": "index.js",
   "pkg": {
-    "scripts": [],
-    "assets": [],
-    "targets": [ "node18-win-x64" ],
+    "scripts": [
+      "index.js" 
+    ],
+    "assets": [
+      "package.json" 
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
     "outputPath": "dist"
   },
-  
   "dependencies": {
-    "socket.io-client": "^4.7.2",
-    "dotenv": "^16.3.1",
-    "chalk": "^4.1.2"
+    "socket.io-client": "^4.7.2"
   },
   "devDependencies": {
     "pkg": "^5.8.1"
+  },
+  "scripts": {
+    "build": "pkg . --targets node18-win-x64 --output dist/shogistack-connector.exe"
   }
 }
