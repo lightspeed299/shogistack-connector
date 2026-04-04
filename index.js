@@ -7,7 +7,7 @@ const https = require("https");
 const os = require("os");
 
 // ★バージョン設定
-const CURRENT_VERSION = "v3.1";
+const CURRENT_VERSION = "v3.2";
 const REPO_OWNER = "lightspeed299";
 const REPO_NAME = "shogistack-connector";
 
@@ -457,7 +457,8 @@ function connectToServer(serverUrl, config) {
       const lines = chunk.toString().split("\n");
       for (const line of lines) {
         const trimmed = line.trim();
-        if (trimmed.startsWith("info") && trimmed.includes("score")) {
+        // ★ isAnalyzing ガード: 解析停止後のinfo出力はクライアントに送らない
+        if (isAnalyzing && trimmed.startsWith("info") && trimmed.includes("score")) {
           socket.emit("connector_analysis_update", { info: trimmed });
         }
       }
