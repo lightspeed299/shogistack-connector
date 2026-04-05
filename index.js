@@ -7,7 +7,7 @@ const https = require("https");
 const os = require("os");
 
 // ★バージョン設定
-const CURRENT_VERSION = "v3.2";
+const CURRENT_VERSION = "v3.2.1";
 const REPO_OWNER = "lightspeed299";
 const REPO_NAME = "shogistack-connector";
 
@@ -225,28 +225,8 @@ function runSetupWizard() {
 
 // --- 接続とエンジンの処理 ---
 function startConnection(config) {
-  const PRODUCTION_URL = config.serverUrl || "https://shogistack-server.onrender.com";
-  const LOCAL_URL = "http://localhost:3001";
-
-  // ★ localhost を先に試し、3秒で接続できなければ本番にフォールバック
-  console.log(`🔌 ローカルサーバー(${LOCAL_URL})を確認中...`);
-  const testSocket = io(LOCAL_URL, {
-    auth: { type: 'connector', token: config.apiKey },
-    timeout: 3000,
-    reconnection: false,
-  });
-
-  testSocket.on("connect", () => {
-    console.log(`✅ ローカルサーバーに接続しました！`);
-    testSocket.disconnect();
-    connectToServer(LOCAL_URL, config);
-  });
-
-  testSocket.on("connect_error", () => {
-    testSocket.disconnect();
-    console.log(`⚠️ ローカル接続失敗。本番サーバー(${PRODUCTION_URL})に接続します...`);
-    connectToServer(PRODUCTION_URL, config);
-  });
+  const serverUrl = config.serverUrl || "https://shogistack-server.onrender.com";
+  connectToServer(serverUrl, config);
 }
 
 function connectToServer(serverUrl, config) {

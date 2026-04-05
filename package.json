@@ -1,6 +1,6 @@
 {
   "name": "shogistack-connector",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "ShogiStack Engine Connector",
   "main": "index.js",
   "bin": "index.js",
