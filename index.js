@@ -7,7 +7,7 @@ const https = require("https");
 const os = require("os");
 
 // ★バージョン設定
-const CURRENT_VERSION = "v3.2.1";
+const CURRENT_VERSION = "v3.2.2";
 const REPO_OWNER = "lightspeed299";
 const REPO_NAME = "shogistack-connector";
 
@@ -239,6 +239,7 @@ function connectToServer(serverUrl, config) {
   let engineProcess = null;
   let isAnalyzing = false;
   let lastSfen = null;
+  let lastTurn = null;
   let isChangingOption = false;
 
   socket.on("connect", () => {
@@ -261,13 +262,16 @@ function connectToServer(serverUrl, config) {
 
   socket.on("request_analysis", (data) => {
     const sfen = data.sfen;
+    const turn = data.turn;
     if (isChangingOption) {
       lastSfen = sfen;
+      lastTurn = turn;
       return;
     }
 
     if (!engineProcess || !sfen) return;
     lastSfen = sfen;
+    lastTurn = turn;
     isAnalyzing = true;
     console.log(`🔍 解析開始...`);
     engineProcess.stdin.write("stop\n");
@@ -439,7 +443,11 @@ function connectToServer(serverUrl, config) {
         const trimmed = line.trim();
         // ★ isAnalyzing ガード: 解析停止後のinfo出力はクライアントに送らない
         if (isAnalyzing && trimmed.startsWith("info") && trimmed.includes("score")) {
-          socket.emit("connector_analysis_update", { info: trimmed });
+          socket.emit("connector_analysis_update", {
+            info: trimmed,
+            sfen: lastSfen,
+            turn: lastTurn
+          });
         }
       }
     });

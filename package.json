@@ -1,7 +1,7 @@
 {
   "name": "shogistack-connector",
-  "version": "3.2.1",
-  "description": "ShogiStack Engine Connector",
+  "version": "3.2.2",
+  "description": "Local USI engine connector for ShogiStack analysis",
   "main": "index.js",
   "bin": "index.js",
   "pkg": {
