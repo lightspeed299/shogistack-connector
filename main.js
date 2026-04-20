@@ -10,20 +10,30 @@ const { autoUpdater } = require('electron-updater');
 const CURRENT_VERSION = 'v4.0.0';
 
 // --- 設定ファイル ---
-function getConfigDir() {
-  if (process.platform === 'win32') {
-    return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'ShogiStackConnector');
-  }
-  return path.join(os.homedir(), '.config', 'shogistack-connector');
-}
-
+// Electron標準の userData (%APPDATA%\shogistack-connector) を使用
 function getConfigPath() {
-  const dir = getConfigDir();
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const dir = app.getPath('userData');
   return path.join(dir, 'config.json');
 }
 
-const CONFIG_PATH = getConfigPath();
+// app.whenReady() 後に初期化するため遅延
+let CONFIG_PATH;
+
+// 旧フォルダ (ShogiStackConnector) → 新フォルダ (shogistack-connector) へ移行
+function migrateOldConfig() {
+  const oldDir = path.join(process.env.APPDATA || '', 'ShogiStackConnector');
+  const oldFile = path.join(oldDir, 'config.json');
+  if (fs.existsSync(oldFile) && !fs.existsSync(CONFIG_PATH)) {
+    try {
+      fs.copyFileSync(oldFile, CONFIG_PATH);
+      fs.rmSync(oldDir, { recursive: true, force: true });
+      log('旧設定を移行しました');
+    } catch (e) { /* 移行失敗は無視 */ }
+  } else if (fs.existsSync(oldDir) && fs.existsSync(CONFIG_PATH)) {
+    // 両方あれば旧フォルダだけ削除
+    try { fs.rmSync(oldDir, { recursive: true, force: true }); } catch (e) { /* */ }
+  }
+}
 
 function loadConfig() {
   try {
@@ -377,6 +387,8 @@ function createWindow() {
 
 // --- アプリ起動 ---
 app.whenReady().then(() => {
+  CONFIG_PATH = getConfigPath();
+  migrateOldConfig();
   setupIPC();
   createWindow();
   setupAutoUpdater();
