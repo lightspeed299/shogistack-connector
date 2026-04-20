@@ -7,7 +7,7 @@ const io = require('socket.io-client');
 const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
-const CURRENT_VERSION = 'v4.0.0';
+const CURRENT_VERSION = `v${require('./package.json').version}`;
 
 // --- 設定ファイル ---
 // Electron標準の userData (%APPDATA%\shogistack-connector) を使用
