@@ -1,6 +1,6 @@
 {
   "name": "shogistack-connector",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "Local USI engine connector for ShogiStack analysis",
   "author": "lightspeed299",
   "main": "main.js",
