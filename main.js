@@ -411,11 +411,18 @@ function setupIPC() {
       );
       // DL系: *.onnx
       const dlFiles = files.filter(f => /\.onnx$/i.test(f));
-      // eval/ サブフォルダ
-      const hasEvalDir = files.some(f => {
+      // eval/ サブフォルダ内のファイルも検出
+      const evalDir = files.find(f => {
         const full = path.join(dir, f);
         return f.toLowerCase() === 'eval' && fs.statSync(full).isDirectory();
       });
+      let evalContents = [];
+      if (evalDir) {
+        try {
+          evalContents = fs.readdirSync(path.join(dir, evalDir))
+            .filter(f => /\.(bin|nnue)$/i.test(f));
+        } catch (_) { /* ignore */ }
+      }
 
       if (nnueFiles.length > 0) {
         return { ok: true, type: 'NNUE', files: nnueFiles };
@@ -423,8 +430,11 @@ function setupIPC() {
       if (dlFiles.length > 0) {
         return { ok: true, type: 'DL', files: dlFiles };
       }
-      if (hasEvalDir) {
-        return { ok: true, type: 'eval/', files: ['eval/'] };
+      if (evalDir) {
+        const display = evalContents.length > 0
+          ? evalContents.map(f => `eval/${f}`)
+          : ['eval/'];
+        return { ok: true, type: 'evalフォルダ', files: display };
       }
       return { ok: false, files: [] };
     } catch (e) {
