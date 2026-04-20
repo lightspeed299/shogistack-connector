@@ -31,7 +31,7 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.ico",
+      "icon": "assets/icon.png",
       "signAndEditExecutable": false
     },
     "nsis": {
