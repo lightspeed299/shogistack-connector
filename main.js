@@ -78,9 +78,47 @@ let socket = null;
 let engineProcess = null;
 let isAnalyzing = false;
 let isChangingOption = false;
+let isChangingOptionTimer = null;
 let lastSfen = null;
 let lastTurn = null;
 let currentConfig = null;
+
+// ★エンジン自動再起動（クラッシュ時）: 1分間に最大3回まで
+const ENGINE_RESTART_LIMIT = 3;
+const ENGINE_RESTART_WINDOW_MS = 60 * 1000;
+let engineRestartTimestamps = [];
+
+// ★安全な stdin.write ヘルパー（破損パイプへの書き込みを防止）
+function safeWrite(cmd) {
+  if (engineProcess && engineProcess.stdin && engineProcess.stdin.writable) {
+    try {
+      engineProcess.stdin.write(cmd);
+      return true;
+    } catch (e) {
+      log(`stdin書き込みエラー: ${e.message}`);
+      return false;
+    }
+  }
+  return false;
+}
+
+// ★isChangingOption 安全タイムアウト設定/解除
+function setChangingOption(value) {
+  isChangingOption = value;
+  if (isChangingOptionTimer) {
+    clearTimeout(isChangingOptionTimer);
+    isChangingOptionTimer = null;
+  }
+  if (value) {
+    isChangingOptionTimer = setTimeout(() => {
+      if (isChangingOption) {
+        log('⚠️ isChangingOption 安全タイムアウト: 強制リセット');
+        isChangingOption = false;
+        isChangingOptionTimer = null;
+      }
+    }, 15000);
+  }
+}
 
 function connectToServer(config) {
   currentConfig = config;
@@ -129,38 +167,41 @@ function connectToServer(config) {
     lastTurn = turn;
     isAnalyzing = true;
     log('解析開始...');
-    engineProcess.stdin.write('stop\n');
-    engineProcess.stdin.write(`position sfen ${sanitizeUSI(sfen)}\n`);
-    engineProcess.stdin.write('go infinite\n');
+    safeWrite('stop\n');
+    safeWrite(`position sfen ${sanitizeUSI(sfen)}\n`);
+    safeWrite('go infinite\n');
   });
 
   socket.on('stop_analysis', () => {
     if (isChangingOption) { isAnalyzing = false; return; }
-    if (engineProcess) {
-      log('解析停止');
-      isAnalyzing = false;
-      engineProcess.stdin.write('stop\n');
-      engineProcess.stdin.write('usinewgame\n');
-      engineProcess.stdin.write('isready\n');
-    }
+    log('解析停止');
+    isAnalyzing = false;
+    safeWrite('stop\n');
+    safeWrite('usinewgame\n');
+    safeWrite('isready\n');
   });
 
   socket.on('reset_engine', async () => {
     if (!engineProcess) return;
     log('エンジンリセット');
-    const wasAnalyzing = isAnalyzing;
-    if (wasAnalyzing) {
-      engineProcess.stdin.write('stop\n');
-      await waitForStop(engineProcess);
-    }
-    isAnalyzing = false;
-    engineProcess.stdin.write('usinewgame\n');
-    engineProcess.stdin.write('isready\n');
-    await waitForReady(engineProcess);
-    if (wasAnalyzing && lastSfen) {
-      isAnalyzing = true;
-      engineProcess.stdin.write(`position sfen ${sanitizeUSI(lastSfen)}\n`);
-      engineProcess.stdin.write('go infinite\n');
+    try {
+      const wasAnalyzing = isAnalyzing;
+      if (wasAnalyzing) {
+        safeWrite('stop\n');
+        await waitForStop(engineProcess);
+      }
+      isAnalyzing = false;
+      safeWrite('usinewgame\n');
+      safeWrite('isready\n');
+      await waitForReady(engineProcess);
+      if (wasAnalyzing && lastSfen) {
+        isAnalyzing = true;
+        safeWrite(`position sfen ${sanitizeUSI(lastSfen)}\n`);
+        safeWrite('go infinite\n');
+      }
+    } catch (e) {
+      log(`エンジンリセットエラー: ${e.message}`);
+      isAnalyzing = false;
     }
   });
 
@@ -168,25 +209,30 @@ function connectToServer(config) {
     if (!engineProcess || isChangingOption) return;
     const { name, value } = data;
     log(`オプション変更: ${name} = ${value}`);
-    isChangingOption = true;
+    setChangingOption(true);
 
     if (!config.engineOptions) config.engineOptions = {};
     config.engineOptions[name] = value;
     try { saveConfig(config); } catch (e) { log(`設定保存エラー: ${e.message}`); }
 
-    const wasAnalyzing = isAnalyzing;
-    if (wasAnalyzing) {
-      engineProcess.stdin.write('stop\n');
-      await waitForStop(engineProcess);
+    try {
+      const wasAnalyzing = isAnalyzing;
+      if (wasAnalyzing) {
+        safeWrite('stop\n');
+        await waitForStop(engineProcess);
+      }
+      safeWrite(`setoption name ${sanitizeUSI(name)} value ${sanitizeUSI(value)}\n`);
+      safeWrite('isready\n');
+      await waitForReady(engineProcess);
+      if (wasAnalyzing && lastSfen) {
+        safeWrite(`position sfen ${lastSfen}\n`);
+        safeWrite('go infinite\n');
+      }
+    } catch (e) {
+      log(`オプション変更エラー: ${e.message}`);
+    } finally {
+      setChangingOption(false);
     }
-    engineProcess.stdin.write(`setoption name ${sanitizeUSI(name)} value ${sanitizeUSI(value)}\n`);
-    engineProcess.stdin.write('isready\n');
-    await waitForReady(engineProcess);
-    if (wasAnalyzing && lastSfen) {
-      engineProcess.stdin.write(`position sfen ${lastSfen}\n`);
-      engineProcess.stdin.write('go infinite\n');
-    }
-    isChangingOption = false;
   });
 }
 
@@ -258,7 +304,23 @@ function startEngine(config) {
   engineProcess.on('close', (code) => {
     log(`エンジン終了 (code: ${code})`);
     engineProcess = null;
+    // ★デッドロック防止: エンジン終了時にフラグを強制リセット
+    setChangingOption(false);
+    isAnalyzing = false;
     sendStatus({ connected: !!socket?.connected, engineRunning: false });
+
+    // ★エンジン自動再起動（意図しないクラッシュ時）
+    if (currentConfig && socket?.connected && code !== 0 && code !== null) {
+      const now = Date.now();
+      engineRestartTimestamps = engineRestartTimestamps.filter(t => now - t < ENGINE_RESTART_WINDOW_MS);
+      if (engineRestartTimestamps.length < ENGINE_RESTART_LIMIT) {
+        engineRestartTimestamps.push(now);
+        log(`⚠️ エンジンがクラッシュしました。自動再起動します... (${engineRestartTimestamps.length}/${ENGINE_RESTART_LIMIT})`);
+        setTimeout(() => startEngine(currentConfig), 1000);
+      } else {
+        log('❌ エンジンの再起動回数が上限に達しました。手動で再接続してください。');
+      }
+    }
   });
 }
 
