@@ -14,11 +14,24 @@ contextBridge.exposeInMainWorld('connector', {
   connect: (config) => ipcRenderer.invoke('connect', config),
   disconnect: () => ipcRenderer.invoke('disconnect'),
 
+  // 自動アップデート
+  checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+
   // イベント受信
   onStatusUpdate: (callback) => {
     ipcRenderer.on('status-update', (_, data) => callback(data));
   },
   onLogMessage: (callback) => {
     ipcRenderer.on('log-message', (_, msg) => callback(msg));
+  },
+  onUpdateAvailable: (callback) => {
+    ipcRenderer.on('update-available', (_, version) => callback(version));
+  },
+  onUpdateProgress: (callback) => {
+    ipcRenderer.on('update-progress', (_, percent) => callback(percent));
+  },
+  onUpdateDownloaded: (callback) => {
+    ipcRenderer.on('update-downloaded', () => callback());
   },
 });

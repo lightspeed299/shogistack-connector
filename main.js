@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const io = require('socket.io-client');
 const { spawn } = require('child_process');
+const { autoUpdater } = require('electron-updater');
 
 const CURRENT_VERSION = 'v4.0.0';
 
@@ -307,6 +308,15 @@ function setupIPC() {
     disconnectFromServer();
     return true;
   });
+
+  // --- 自動アップデート ---
+  ipcMain.handle('check-for-update', () => {
+    autoUpdater.checkForUpdates().catch(() => {});
+  });
+  ipcMain.handle('install-update', () => {
+    disconnectFromServer();
+    autoUpdater.quitAndInstall();
+  });
 }
 
 // --- ウィンドウ作成 ---
@@ -334,9 +344,45 @@ function createWindow() {
 app.whenReady().then(() => {
   setupIPC();
   createWindow();
+  setupAutoUpdater();
 });
 
 app.on('window-all-closed', () => {
   disconnectFromServer();
   app.quit();
 });
+
+// --- 自動アップデート ---
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+
+  autoUpdater.on('update-available', (info) => {
+    log(`新バージョン ${info.version} が利用可能です`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-available', info.version);
+    }
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-progress', Math.round(progress.percent));
+    }
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    log('アップデートのダウンロード完了');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-downloaded');
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    log(`アップデート確認エラー: ${err.message}`);
+  });
+
+  // 起動5秒後にチェック
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(() => {});
+  }, 5000);
+}

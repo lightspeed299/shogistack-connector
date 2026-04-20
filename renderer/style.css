@@ -333,3 +333,39 @@ input[type="number"] { width: 100%; }
   font-size: 14px;
 }
 .btn-icon:hover { background: #f3f4f6; }
+
+/* ===== Update Bar ===== */
+.update-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #1e40af;
+}
+.update-bar.downloading {
+  background: #fefce8;
+  border-color: #fde68a;
+  color: #92400e;
+}
+.update-bar.ready {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+.btn-update {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-update:hover { background: var(--primary-hover); }
+

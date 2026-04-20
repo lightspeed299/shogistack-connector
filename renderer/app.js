@@ -184,4 +184,39 @@
       container.removeChild(container.firstChild);
     }
   }
+
+  // ========== Auto Update ==========
+  window.connector.onUpdateAvailable((version) => {
+    const bar = $('#update-bar');
+    const msg = $('#update-msg');
+    const btn = $('#btn-update');
+    bar.classList.remove('hidden');
+    bar.className = 'update-bar';
+    msg.textContent = `v${version} が利用可能です`;
+    btn.textContent = 'ダウンロード';
+    btn.onclick = () => {
+      window.connector.checkForUpdate();
+      msg.textContent = `v${version} をダウンロード中...`;
+      bar.className = 'update-bar downloading';
+      btn.disabled = true;
+    };
+  });
+
+  window.connector.onUpdateProgress((percent) => {
+    const msg = $('#update-msg');
+    msg.textContent = `ダウンロード中... ${percent}%`;
+  });
+
+  window.connector.onUpdateDownloaded(() => {
+    const bar = $('#update-bar');
+    const msg = $('#update-msg');
+    const btn = $('#btn-update');
+    bar.className = 'update-bar ready';
+    msg.textContent = 'アップデート準備完了';
+    btn.textContent = '再起動してインストール';
+    btn.disabled = false;
+    btn.onclick = () => {
+      window.connector.installUpdate();
+    };
+  });
 })();
