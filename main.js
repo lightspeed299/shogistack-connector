@@ -68,6 +68,11 @@ function sendStatus(status) {
   }
 }
 
+// --- USI入力サニタイズ ---
+function sanitizeUSI(str) {
+  return String(str).replace(/[\r\n\x00-\x1f]/g, '');
+}
+
 // --- Socket.io + Engine ---
 let socket = null;
 let engineProcess = null;
@@ -125,7 +130,7 @@ function connectToServer(config) {
     isAnalyzing = true;
     log('解析開始...');
     engineProcess.stdin.write('stop\n');
-    engineProcess.stdin.write(`position sfen ${sfen}\n`);
+    engineProcess.stdin.write(`position sfen ${sanitizeUSI(sfen)}\n`);
     engineProcess.stdin.write('go infinite\n');
   });
 
@@ -154,7 +159,7 @@ function connectToServer(config) {
     await waitForReady(engineProcess);
     if (wasAnalyzing && lastSfen) {
       isAnalyzing = true;
-      engineProcess.stdin.write(`position sfen ${lastSfen}\n`);
+      engineProcess.stdin.write(`position sfen ${sanitizeUSI(lastSfen)}\n`);
       engineProcess.stdin.write('go infinite\n');
     }
   });
@@ -174,7 +179,7 @@ function connectToServer(config) {
       engineProcess.stdin.write('stop\n');
       await waitForStop(engineProcess);
     }
-    engineProcess.stdin.write(`setoption name ${name} value ${value}\n`);
+    engineProcess.stdin.write(`setoption name ${sanitizeUSI(name)} value ${sanitizeUSI(value)}\n`);
     engineProcess.stdin.write('isready\n');
     await waitForReady(engineProcess);
     if (wasAnalyzing && lastSfen) {
@@ -296,6 +301,9 @@ function setupIPC() {
   }));
 
   ipcMain.handle('save-config', (_, config) => {
+    if (!config || typeof config !== 'object' || typeof config.apiKey !== 'string' || typeof config.enginePath !== 'string') {
+      return false;
+    }
     saveConfig(config);
     return true;
   });
@@ -315,6 +323,7 @@ function setupIPC() {
 
   ipcMain.handle('check-eval-files', (_, enginePath) => {
     try {
+      if (!enginePath || !enginePath.endsWith('.exe')) return { ok: false, files: [] };
       const dir = path.dirname(enginePath.replace(/\//g, path.sep));
       const files = fs.readdirSync(dir);
       // NNUE系: nn.bin, *.nnue, nn*.bin

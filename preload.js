@@ -20,20 +20,25 @@ contextBridge.exposeInMainWorld('connector', {
   checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
 
-  // イベント受信
+  // イベント受信（重複登録防止）
   onStatusUpdate: (callback) => {
+    ipcRenderer.removeAllListeners('status-update');
     ipcRenderer.on('status-update', (_, data) => callback(data));
   },
   onLogMessage: (callback) => {
+    ipcRenderer.removeAllListeners('log-message');
     ipcRenderer.on('log-message', (_, msg) => callback(msg));
   },
   onUpdateAvailable: (callback) => {
+    ipcRenderer.removeAllListeners('update-available');
     ipcRenderer.on('update-available', (_, version) => callback(version));
   },
   onUpdateProgress: (callback) => {
+    ipcRenderer.removeAllListeners('update-progress');
     ipcRenderer.on('update-progress', (_, percent) => callback(percent));
   },
   onUpdateDownloaded: (callback) => {
+    ipcRenderer.removeAllListeners('update-downloaded');
     ipcRenderer.on('update-downloaded', () => callback());
   },
 });
