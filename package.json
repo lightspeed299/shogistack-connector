@@ -40,7 +40,8 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "ShogiStack Connector"
+      "shortcutName": "ShogiStack Connector",
+      "artifactName": "ShogiStackConnector-Setup.${ext}"
     },
     "publish": {
       "provider": "github",
