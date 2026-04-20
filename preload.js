@@ -5,10 +5,12 @@ contextBridge.exposeInMainWorld('connector', {
   // 設定
   getConfig: () => ipcRenderer.invoke('get-config'),
   getVersion: () => ipcRenderer.invoke('get-version'),
+  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
 
   // エンジン選択
   selectEngineFile: () => ipcRenderer.invoke('select-engine-file'),
+  checkEvalFiles: (enginePath) => ipcRenderer.invoke('check-eval-files', enginePath),
 
   // 接続制御
   connect: (config) => ipcRenderer.invoke('connect', config),
