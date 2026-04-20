@@ -139,6 +139,12 @@
       if (filePath) {
         $('#cfg-engine').value = filePath;
         $('#engine-name').textContent = filePath.split('/').pop();
+        const result = await window.connector.checkEvalFiles(filePath);
+        if (result.ok) {
+          addLog(`評価関数を検出 (${result.type}): ${result.files.join(', ')}`);
+        } else {
+          addLog('⚠ 評価関数が見つかりません。エンジンと同じフォルダに配置してください。');
+        }
       }
     });
 
