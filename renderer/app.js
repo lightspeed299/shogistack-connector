@@ -3,6 +3,20 @@
   const $ = (sel) => document.querySelector(sel);
   const config = await window.connector.getConfig();
   const version = await window.connector.getVersion();
+  const sysInfo = await window.connector.getSystemInfo();
+
+  // スレッド/Hash上限をシステム仕様に合わせる
+  const maxThreads = sysInfo.cpuCores;
+  const maxHashMB = Math.floor(sysInfo.totalMemoryMB * 0.75); // メモリの75%まで
+  applyLimits('wizard-threads', 'wizard-hash', maxThreads, maxHashMB);
+  applyLimits('cfg-threads', 'cfg-hash', maxThreads, maxHashMB);
+
+  function applyLimits(threadsId, hashId, maxT, maxH) {
+    const tEl = $(`#${threadsId}`);
+    const hEl = $(`#${hashId}`);
+    if (tEl) { tEl.max = maxT; tEl.title = `最大 ${maxT} (CPU論理コア数)`; }
+    if (hEl) { hEl.max = maxH; hEl.title = `最大 ${maxH} MB (搭載メモリの75%)`; }
+  }
 
   // 設定があればメイン画面、なければウィザード
   if (config && config.apiKey && config.enginePath) {
@@ -65,13 +79,19 @@
     }
   }
 
-  function checkEvalFiles(enginePath) {
-    // Renderer側ではファイルシステムにアクセスできないので、
-    // 評価関数チェックは省略（Main Process側でエンジン起動時に判定される）
+  async function checkEvalFiles(enginePath) {
     const statusEl = $('#wizard-eval-status');
-    const dir = enginePath.substring(0, enginePath.lastIndexOf('/'));
-    statusEl.textContent = `エンジンフォルダ: ${dir}`;
+    statusEl.textContent = '評価関数を確認中...';
     statusEl.className = 'eval-status';
+
+    const result = await window.connector.checkEvalFiles(enginePath);
+    if (result.ok) {
+      statusEl.textContent = `評価関数を検出 (${result.type}): ${result.files.join(', ')}`;
+      statusEl.style.color = '#008000';
+    } else {
+      statusEl.textContent = '評価関数が見つかりません。エンジンと同じフォルダに配置してください。';
+      statusEl.style.color = '#cc6600';
+    }
   }
 
   // ========== Main Screen ==========
@@ -110,7 +130,7 @@
     $('#btn-toggle-key').addEventListener('click', () => {
       keyVisible = !keyVisible;
       $('#cfg-apikey').type = keyVisible ? 'text' : 'password';
-      $('#btn-toggle-key').textContent = keyVisible ? '🙈' : '👁';
+      $('#btn-toggle-key').textContent = keyVisible ? '非表示' : '表示';
     });
 
     // Engine select
@@ -124,13 +144,17 @@
 
     // Save
     $('#btn-save').addEventListener('click', async () => {
+      let threads = parseInt($('#cfg-threads').value, 10) || 4;
+      let hash = parseInt($('#cfg-hash').value, 10) || 1024;
+      if (threads > maxThreads) { threads = maxThreads; $('#cfg-threads').value = threads; addLog(`Threadsを${maxThreads}に制限しました (CPUコア数上限)`); }
+      if (hash > maxHashMB) { hash = maxHashMB; $('#cfg-hash').value = hash; addLog(`Hashを${maxHashMB}MBに制限しました (メモリ75%上限)`); }
       const updated = {
         serverUrl: cfg.serverUrl || 'https://shogistack-server.onrender.com',
         apiKey: $('#cfg-apikey').value,
         enginePath: $('#cfg-engine').value,
         engineOptions: {
-          Threads: parseInt($('#cfg-threads').value, 10) || 4,
-          USI_Hash: parseInt($('#cfg-hash').value, 10) || 1024,
+          Threads: threads,
+          USI_Hash: hash,
           MultiPV: parseInt($('#cfg-multipv').value, 10) || 3,
           fv_scale: parseInt($('#cfg-fvscale').value, 10) || 24,
         }
@@ -164,7 +188,13 @@
       text.textContent = 'OFFLINE';
     }
 
-    engineStatus.textContent = status.engineRunning ? '稼働中' : '停止';
+    engineStatus.textContent = status.engineRunning ? '待機中' : '停止';
+
+    // ステータスバー更新
+    const sbConn = $('#sb-connection');
+    const sbEngine = $('#sb-engine');
+    if (sbConn) sbConn.textContent = `接続: ${status.connected ? 'オンライン' : 'オフライン'}`;
+    if (sbEngine) sbEngine.textContent = `エンジン: ${status.engineRunning ? '待機中' : '停止'}`;
   });
 
   window.connector.onLogMessage((msg) => {

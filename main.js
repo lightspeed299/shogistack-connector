@@ -280,6 +280,10 @@ function waitForReady(proc) {
 function setupIPC() {
   ipcMain.handle('get-config', () => loadConfig());
   ipcMain.handle('get-version', () => CURRENT_VERSION);
+  ipcMain.handle('get-system-info', () => ({
+    cpuCores: os.cpus().length,
+    totalMemoryMB: Math.floor(os.totalmem() / (1024 * 1024)),
+  }));
 
   ipcMain.handle('save-config', (_, config) => {
     saveConfig(config);
@@ -297,6 +301,37 @@ function setupIPC() {
     });
     if (result.canceled || result.filePaths.length === 0) return null;
     return result.filePaths[0].replace(/\\/g, '/');
+  });
+
+  ipcMain.handle('check-eval-files', (_, enginePath) => {
+    try {
+      const dir = path.dirname(enginePath.replace(/\//g, path.sep));
+      const files = fs.readdirSync(dir);
+      // NNUE系: nn.bin, *.nnue, nn*.bin
+      const nnueFiles = files.filter(f =>
+        /^nn.*\.bin$/i.test(f) || /\.nnue$/i.test(f)
+      );
+      // DL系: *.onnx
+      const dlFiles = files.filter(f => /\.onnx$/i.test(f));
+      // eval/ サブフォルダ
+      const hasEvalDir = files.some(f => {
+        const full = path.join(dir, f);
+        return f.toLowerCase() === 'eval' && fs.statSync(full).isDirectory();
+      });
+
+      if (nnueFiles.length > 0) {
+        return { ok: true, type: 'NNUE', files: nnueFiles };
+      }
+      if (dlFiles.length > 0) {
+        return { ok: true, type: 'DL', files: dlFiles };
+      }
+      if (hasEvalDir) {
+        return { ok: true, type: 'eval/', files: ['eval/'] };
+      }
+      return { ok: false, files: [] };
+    } catch (e) {
+      return { ok: false, error: e.message, files: [] };
+    }
   });
 
   ipcMain.handle('connect', (_, config) => {
@@ -378,6 +413,10 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('error', (err) => {
+    // latest.yml未公開やネットワークエラーは無視
+    if (err.message && (err.message.includes('latest.yml') || err.message.includes('net::') || err.message.includes('404'))) {
+      return;
+    }
     log(`アップデート確認エラー: ${err.message}`);
   });
 
