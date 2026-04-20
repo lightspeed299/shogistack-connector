@@ -374,7 +374,7 @@ function setupIPC() {
   });
   ipcMain.handle('install-update', () => {
     disconnectFromServer();
-    autoUpdater.quitAndInstall();
+    autoUpdater.quitAndInstall(true, true);
   });
 }
 
@@ -391,7 +391,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    icon: path.join(__dirname, 'assets', 'icon.png'),
+    icon: path.join(__dirname, 'assets', 'icon.ico'),
     title: `ShogiStack Connector ${CURRENT_VERSION}`,
     autoHideMenuBar: true,
   });
