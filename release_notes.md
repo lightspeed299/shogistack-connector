@@ -1,3 +1,10 @@
+## v4.0.7 Engine Settings Sync
+
+- **New: エンジン設定のConnector→ブラウザ同期**
+  - ブラウザ接続時にConnectorが現在のThreads/MultiPV値をブラウザに通知
+  - エンジン設定変更後も最新の値をブラウザへ即時反映
+  - Connectorが唯一の設定ソースとなり、状態の競合を構造的に排除
+
 ## v4.0.6 Bug Fixes
 
 - **Fix: 解析が永続的に「Thinking...」状態になる致命的バグを修正**

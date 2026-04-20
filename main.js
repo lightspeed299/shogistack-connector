@@ -154,6 +154,16 @@ function connectToServer(config) {
     if (reason === 'io server disconnect') socket.connect();
   });
 
+  // ★設定同期: ブラウザ接続時に現在のエンジン設定を返す
+  socket.on('request_engine_settings', () => {
+    if (currentConfig?.engineOptions && socket?.connected) {
+      socket.emit('connector_engine_settings', {
+        Threads: currentConfig.engineOptions.Threads,
+        MultiPV: currentConfig.engineOptions.MultiPV,
+      });
+    }
+  });
+
   // --- 解析リクエスト ---
   socket.on('request_analysis', (data) => {
     const { sfen, turn } = data;
@@ -232,6 +242,13 @@ function connectToServer(config) {
       log(`オプション変更エラー: ${e.message}`);
     } finally {
       setChangingOption(false);
+      // ★設定同期: 変更後の実際の値をブラウザへ通知
+      if (socket?.connected && currentConfig?.engineOptions) {
+        socket.emit('connector_engine_settings', {
+          Threads: currentConfig.engineOptions.Threads,
+          MultiPV: currentConfig.engineOptions.MultiPV,
+        });
+      }
     }
   });
 }
