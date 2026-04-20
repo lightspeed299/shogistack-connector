@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('connector', {
 
   // 自動アップデート
   checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
 
   // イベント受信（重複登録防止）

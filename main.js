@@ -367,6 +367,11 @@ function setupIPC() {
   ipcMain.handle('check-for-update', () => {
     autoUpdater.checkForUpdates().catch(() => {});
   });
+  ipcMain.handle('download-update', () => {
+    autoUpdater.downloadUpdate().catch((err) => {
+      log(`ダウンロードエラー: ${err.message}`);
+    });
+  });
   ipcMain.handle('install-update', () => {
     disconnectFromServer();
     autoUpdater.quitAndInstall();

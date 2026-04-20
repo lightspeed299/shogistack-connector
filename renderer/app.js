@@ -225,7 +225,7 @@
     msg.textContent = `v${version} が利用可能です`;
     btn.textContent = 'ダウンロード';
     btn.onclick = () => {
-      window.connector.checkForUpdate();
+      window.connector.downloadUpdate();
       msg.textContent = `v${version} をダウンロード中...`;
       bar.className = 'update-bar downloading';
       btn.disabled = true;
