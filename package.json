@@ -1,6 +1,6 @@
 {
   "name": "shogistack-connector",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Local USI engine connector for ShogiStack analysis",
   "author": "lightspeed299",
   "main": "main.js",
@@ -18,6 +18,7 @@
     "electron-builder": "^26.8.1"
   },
   "build": {
+    "npmRebuild": false,
     "appId": "com.shogistack.connector",
     "productName": "ShogiStack Connector",
     "files": [
@@ -31,15 +32,17 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.ico",
       "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
       "shortcutName": "ShogiStack Connector",
       "artifactName": "ShogiStackConnector-Setup.${ext}"
     },
