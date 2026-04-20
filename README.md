@@ -6,6 +6,8 @@
 
 [最新版をダウンロード](https://github.com/lightspeed299/shogistack-connector/releases/latest) — Windows専用
 
+> ⚠️ Edge等のブラウザでは「安全にダウンロードできません」と表示される場合があります。**Google Chrome** でのダウンロードを推奨します。
+
 ## これで何ができるか
 
 ShogiStack の**研究室**でConnectorを接続すると、以下の機能が使えるようになります。
