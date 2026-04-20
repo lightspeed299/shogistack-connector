@@ -37,8 +37,7 @@ npm run build
 
 ## 設定ファイルの場所
 
-- Windows: `%APPDATA%\ShogiStackConnector\config.json`
-- Mac/Linux: `~/.config/shogistack-connector/config.json`
+- Windows: `%APPDATA%\shogistack-connector\config.json`
 
 設定を最初からやり直すには、上記ファイルを削除してアプリを再起動してください。
 
@@ -49,4 +48,4 @@ npm run build
 
 ## ライセンス
 
-MIT
+All rights reserved. 無断転載・再配布を禁じます。
