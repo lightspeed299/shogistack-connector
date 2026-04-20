@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShogiStack Connector</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ========== セットアップウィザード ========== -->
+  <div id="wizard" class="hidden">
+    <div class="wizard-header">
+      <h1>ShogiStack Connector</h1>
+      <p class="wizard-sub">初回セットアップ</p>
+    </div>
+
+    <!-- Step 1: API Key -->
+    <div id="wizard-step1" class="wizard-step">
+      <div class="step-badge">1 / 3</div>
+      <h2>APIキーを入力</h2>
+      <p class="step-desc">ShogiStackの<strong>Connectorセットアップページ</strong>でAPIキーを発行し、下に貼り付けてください。</p>
+      <input type="text" id="wizard-apikey" placeholder="sk_live_..." autocomplete="off" spellcheck="false">
+      <button id="wizard-next1" class="btn-primary" disabled>次へ</button>
+    </div>
+
+    <!-- Step 2: Engine -->
+    <div id="wizard-step2" class="wizard-step hidden">
+      <div class="step-badge">2 / 3</div>
+      <h2>エンジンを選択</h2>
+      <p class="step-desc">USI対応の将棋エンジン（.exe）を選択してください。</p>
+      <div class="engine-select-row">
+        <input type="text" id="wizard-engine" readonly placeholder="エンジンを選択...">
+        <button id="wizard-browse" class="btn-secondary">選択</button>
+      </div>
+      <p id="wizard-eval-status" class="eval-status"></p>
+      <div class="wizard-nav">
+        <button id="wizard-back2" class="btn-text">戻る</button>
+        <button id="wizard-next2" class="btn-primary" disabled>次へ</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Options -->
+    <div id="wizard-step3" class="wizard-step hidden">
+      <div class="step-badge">3 / 3</div>
+      <h2>基本設定</h2>
+      <p class="step-desc">あとから設定画面で変更できます。</p>
+      <div class="options-grid">
+        <label>スレッド数<input type="number" id="wizard-threads" value="4" min="1" max="128"></label>
+        <label>Hash (MB)<input type="number" id="wizard-hash" value="1024" min="16" max="65536"></label>
+        <label>MultiPV<input type="number" id="wizard-multipv" value="3" min="1" max="10"></label>
+        <label>FV_SCALE<input type="number" id="wizard-fvscale" value="24" min="1" max="128"></label>
+      </div>
+      <div class="wizard-nav">
+        <button id="wizard-back3" class="btn-text">戻る</button>
+        <button id="wizard-finish" class="btn-primary">セットアップ完了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== メイン画面 ========== -->
+  <div id="main" class="hidden">
+    <!-- ヘッダー -->
+    <header>
+      <div class="header-left">
+        <h1>ShogiStack Connector</h1>
+        <span id="version" class="version"></span>
+      </div>
+      <div id="status-badge" class="status-badge offline">
+        <span class="status-dot"></span>
+        <span id="status-text">OFFLINE</span>
+      </div>
+    </header>
+
+    <!-- 接続情報 -->
+    <section class="info-panel">
+      <div class="info-row">
+        <span class="info-label">エンジン</span>
+        <span id="engine-name" class="info-value">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">エンジン状態</span>
+        <span id="engine-status" class="info-value">—</span>
+      </div>
+    </section>
+
+    <!-- 設定フォーム -->
+    <section class="settings-panel">
+      <h2>設定</h2>
+      <div class="form-group">
+        <label for="cfg-apikey">APIキー</label>
+        <div class="input-row">
+          <input type="password" id="cfg-apikey" readonly>
+          <button id="btn-toggle-key" class="btn-icon" title="表示切替">👁</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="cfg-engine">エンジン</label>
+        <div class="input-row">
+          <input type="text" id="cfg-engine" readonly>
+          <button id="btn-select-engine" class="btn-secondary btn-sm">選択</button>
+        </div>
+      </div>
+      <div class="options-grid compact">
+        <label>Threads<input type="number" id="cfg-threads" min="1" max="128"></label>
+        <label>Hash (MB)<input type="number" id="cfg-hash" min="16" max="65536"></label>
+        <label>MultiPV<input type="number" id="cfg-multipv" min="1" max="10"></label>
+        <label>FV_SCALE<input type="number" id="cfg-fvscale" min="1" max="128"></label>
+      </div>
+      <div class="settings-actions">
+        <button id="btn-save" class="btn-primary btn-sm">設定を保存</button>
+        <button id="btn-reconnect" class="btn-secondary btn-sm">再接続</button>
+      </div>
+    </section>
+
+    <!-- ログ -->
+    <section class="log-panel">
+      <h2>ログ</h2>
+      <div id="log-container"></div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

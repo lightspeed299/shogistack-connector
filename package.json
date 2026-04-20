@@ -1,28 +1,42 @@
 {
   "name": "shogistack-connector",
-  "version": "3.2.2",
+  "version": "4.0.0",
   "description": "Local USI engine connector for ShogiStack analysis",
-  "main": "index.js",
-  "bin": "index.js",
-  "pkg": {
-    "scripts": [
-      "index.js" 
-    ],
-    "assets": [
-      "package.json" 
-    ],
-    "targets": [
-      "node18-win-x64"
-    ],
-    "outputPath": "dist"
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win"
   },
   "dependencies": {
     "socket.io-client": "^4.7.2"
   },
   "devDependencies": {
-    "pkg": "^5.8.1"
+    "electron": "^30.0.0",
+    "electron-builder": "^24.0.0"
   },
-  "scripts": {
-    "build": "pkg . --targets node18-win-x64 --output dist/shogistack-connector.exe"
+  "build": {
+    "appId": "com.shogistack.connector",
+    "productName": "ShogiStack Connector",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "lightspeed299",
+      "repo": "shogistack-connector"
+    }
   }
 }
