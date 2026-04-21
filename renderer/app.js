@@ -221,6 +221,25 @@
     }
   }
 
+  // ★ログコピー機能
+  $('#btn-copy-log').addEventListener('click', async () => {
+    const container = $('#log-container');
+    const lines = Array.from(container.children).map(el => el.textContent);
+    const text = lines.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      const btn = $('#btn-copy-log');
+      btn.textContent = '✅ コピー済み';
+      setTimeout(() => { btn.textContent = '📋 コピー'; }, 2000);
+    } catch {
+      // フォールバック: 手動選択
+      const range = document.createRange();
+      range.selectNodeContents(container);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    }
+  });
+
   // ========== Auto Update ==========
   window.connector.onUpdateAvailable((version) => {
     const bar = $('#update-bar');

@@ -138,24 +138,41 @@ function connectToServer(config) {
 
   socket.on('connect', () => {
     log(`接続成功 (ID: ${socket.id})`);
+    log(`[DIAG] エンジン状態: ${engineProcess ? 'running (PID: ' + engineProcess.pid + ')' : 'stopped'}`);
+    log(`[DIAG] 現在の設定: Threads=${config.engineOptions?.Threads || '未設定'}, MultiPV=${config.engineOptions?.MultiPV || '未設定'}`);
     socket.emit('connector_ready');
     sendStatus({ connected: true, engineRunning: !!engineProcess });
     startEngine(config);
   });
 
   socket.on('connect_error', (err) => {
-    log(`接続エラー: ${err.message}`);
+    log(`[DIAG] 接続エラー: ${err.message} (type: ${err.type || 'unknown'})`);
     sendStatus({ connected: false, engineRunning: false });
   });
 
   socket.on('disconnect', (reason) => {
-    log(`切断されました (${reason})`);
+    log(`[DIAG] 切断 (reason: ${reason}, engineRunning: ${!!engineProcess})`);
     sendStatus({ connected: false, engineRunning: !!engineProcess });
-    if (reason === 'io server disconnect') socket.connect();
+    if (reason === 'io server disconnect') {
+      log('[DIAG] サーバー側切断 → 手動再接続を試行');
+      socket.connect();
+    }
+  });
+
+  // ★診断: 再接続イベント
+  socket.io.on('reconnect_attempt', (attempt) => {
+    log(`[DIAG] 再接続試行 #${attempt}`);
+  });
+  socket.io.on('reconnect', (attempt) => {
+    log(`[DIAG] 再接続成功 (${attempt}回目)`);
+  });
+  socket.io.on('reconnect_error', (err) => {
+    log(`[DIAG] 再接続エラー: ${err.message}`);
   });
 
   // ★設定同期: ブラウザ接続時に現在のエンジン設定を返す
   socket.on('request_engine_settings', () => {
+    log(`[DIAG] ブラウザから設定リクエスト受信 → Threads=${currentConfig?.engineOptions?.Threads}, MultiPV=${currentConfig?.engineOptions?.MultiPV}`);
     if (currentConfig?.engineOptions && socket?.connected) {
       socket.emit('connector_engine_settings', {
         Threads: currentConfig.engineOptions.Threads,
@@ -216,9 +233,13 @@ function connectToServer(config) {
   });
 
   socket.on('set_engine_option', async (data) => {
-    if (!engineProcess || isChangingOption) return;
+    if (!engineProcess || isChangingOption) {
+      log(`[DIAG] set_engine_option 拒否 (engineProcess: ${!!engineProcess}, isChangingOption: ${isChangingOption})`);
+      return;
+    }
     const { name, value } = data;
-    log(`オプション変更: ${name} = ${value}`);
+    const oldValue = config.engineOptions?.[name];
+    log(`[DIAG] オプション変更: ${name} = ${oldValue} → ${value} (ブラウザからの要求)`);
     setChangingOption(true);
 
     if (!config.engineOptions) config.engineOptions = {};
@@ -269,76 +290,124 @@ function disconnectFromServer() {
 }
 
 // --- エンジン起動 ---
-function startEngine(config) {
-  if (engineProcess) engineProcess.kill();
-  const enginePath = config.enginePath;
+let isStartingEngine = false;
 
-  if (!enginePath || !fs.existsSync(enginePath)) {
-    log(`エンジンが見つかりません: ${enginePath || '(未設定)'}`);
-    sendStatus({ connected: !!socket?.connected, engineRunning: false });
+// ★旧エンジンを安全に終了させる（quit → SIGTERM → 3秒後にフォースキル）
+function killEngineProcess() {
+  return new Promise((resolve) => {
+    if (!engineProcess) { resolve(); return; }
+
+    const proc = engineProcess;
+    engineProcess = null;
+
+    let settled = false;
+    const settle = () => { if (settled) return; settled = true; resolve(); };
+
+    // 3秒で強制終了（Windowsでは大きなプロセスの終了に時間がかかる）
+    const forceTimer = setTimeout(() => {
+      try { proc.kill('SIGKILL'); } catch {}
+      settle();
+    }, 3000);
+
+    proc.once('close', () => {
+      clearTimeout(forceTimer);
+      settle();
+    });
+
+    // USIプロトコルで正常終了を要求 → 1秒後にSIGTERM
+    try { proc.stdin.write('quit\n'); } catch {}
+    setTimeout(() => { try { proc.kill(); } catch {} }, 1000);
+  });
+}
+
+async function startEngine(config) {
+  // ★再入防止: 同時に複数のstartEngineが走らないようにする
+  if (isStartingEngine) {
+    log('エンジン起動中のため、起動要求をスキップしました');
     return;
   }
+  isStartingEngine = true;
 
-  log(`エンジン起動: ${path.basename(enginePath)}`);
-  engineProcess = spawn(enginePath, [], { cwd: path.dirname(enginePath) });
+  try {
+    // ★修正: 旧エンジンの終了を待ってから新エンジンを起動（二重起動防止）
+    await killEngineProcess();
 
-  engineProcess.stdin.write('usi\n');
-  if (config.engineOptions) {
-    for (const [key, value] of Object.entries(config.engineOptions)) {
-      engineProcess.stdin.write(`setoption name ${key} value ${value}\n`);
+    const enginePath = config.enginePath;
+
+    if (!enginePath || !fs.existsSync(enginePath)) {
+      log(`エンジンが見つかりません: ${enginePath || '(未設定)'}`);
+      sendStatus({ connected: !!socket?.connected, engineRunning: false });
+      return;
     }
-  }
-  engineProcess.stdin.write('isready\n');
-  engineProcess.stdin.write('usinewgame\n');
 
-  engineProcess.stdout.on('data', (chunk) => {
-    const lines = chunk.toString().split('\n');
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed === 'readyok') {
-        log('エンジン準備完了');
-        sendStatus({ connected: !!socket?.connected, engineRunning: true });
+    log(`エンジン起動: ${path.basename(enginePath)}`);
+    log(`[DIAG] 適用オプション: ${JSON.stringify(config.engineOptions || {})}`);
+    const proc = spawn(enginePath, [], { cwd: path.dirname(enginePath) });
+    engineProcess = proc;
+
+    proc.stdin.write('usi\n');
+    if (config.engineOptions) {
+      for (const [key, value] of Object.entries(config.engineOptions)) {
+        proc.stdin.write(`setoption name ${key} value ${value}\n`);
       }
-      if (isAnalyzing && trimmed.startsWith('info') && trimmed.includes('score')) {
-        if (socket?.connected) {
-          socket.emit('connector_analysis_update', {
-            info: trimmed,
-            sfen: lastSfen,
-            turn: lastTurn
-          });
+    }
+    proc.stdin.write('isready\n');
+    proc.stdin.write('usinewgame\n');
+
+    proc.stdout.on('data', (chunk) => {
+      const lines = chunk.toString().split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed === 'readyok') {
+          log('エンジン準備完了');
+          sendStatus({ connected: !!socket?.connected, engineRunning: true });
+        }
+        if (isAnalyzing && trimmed.startsWith('info') && trimmed.includes('score')) {
+          if (socket?.connected) {
+            socket.emit('connector_analysis_update', {
+              info: trimmed,
+              sfen: lastSfen,
+              turn: lastTurn
+            });
+          }
         }
       }
-    }
-  });
+    });
 
-  engineProcess.stderr.on('data', (data) => {
-    const msg = data.toString();
-    if (msg.includes('Error') || msg.includes('Failed') || msg.includes('cannot open')) {
-      log(`エンジンエラー: ${msg.trim()}`);
-    }
-  });
-
-  engineProcess.on('close', (code) => {
-    log(`エンジン終了 (code: ${code})`);
-    engineProcess = null;
-    // ★デッドロック防止: エンジン終了時にフラグを強制リセット
-    setChangingOption(false);
-    isAnalyzing = false;
-    sendStatus({ connected: !!socket?.connected, engineRunning: false });
-
-    // ★エンジン自動再起動（意図しないクラッシュ時）
-    if (currentConfig && socket?.connected && code !== 0 && code !== null) {
-      const now = Date.now();
-      engineRestartTimestamps = engineRestartTimestamps.filter(t => now - t < ENGINE_RESTART_WINDOW_MS);
-      if (engineRestartTimestamps.length < ENGINE_RESTART_LIMIT) {
-        engineRestartTimestamps.push(now);
-        log(`⚠️ エンジンがクラッシュしました。自動再起動します... (${engineRestartTimestamps.length}/${ENGINE_RESTART_LIMIT})`);
-        setTimeout(() => startEngine(currentConfig), 1000);
-      } else {
-        log('❌ エンジンの再起動回数が上限に達しました。手動で再接続してください。');
+    proc.stderr.on('data', (data) => {
+      const msg = data.toString();
+      if (msg.includes('Error') || msg.includes('Failed') || msg.includes('cannot open')) {
+        log(`エンジンエラー: ${msg.trim()}`);
       }
-    }
-  });
+    });
+
+    proc.on('close', (code) => {
+      // ★ガード: 古いプロセスのハンドラが新プロセスの参照を上書きしないようにする
+      if (engineProcess !== proc) return;
+
+      log(`エンジン終了 (code: ${code})`);
+      engineProcess = null;
+      // ★デッドロック防止: エンジン終了時にフラグを強制リセット
+      setChangingOption(false);
+      isAnalyzing = false;
+      sendStatus({ connected: !!socket?.connected, engineRunning: false });
+
+      // ★エンジン自動再起動（意図しないクラッシュ時）
+      if (currentConfig && socket?.connected && code !== 0 && code !== null) {
+        const now = Date.now();
+        engineRestartTimestamps = engineRestartTimestamps.filter(t => now - t < ENGINE_RESTART_WINDOW_MS);
+        if (engineRestartTimestamps.length < ENGINE_RESTART_LIMIT) {
+          engineRestartTimestamps.push(now);
+          log(`⚠️ エンジンがクラッシュしました。自動再起動します... (${engineRestartTimestamps.length}/${ENGINE_RESTART_LIMIT})`);
+          setTimeout(() => startEngine(currentConfig), 1000);
+        } else {
+          log('❌ エンジンの再起動回数が上限に達しました。手動で再接続してください。');
+        }
+      }
+    });
+  } finally {
+    isStartingEngine = false;
+  }
 }
 
 // --- 補助関数 ---

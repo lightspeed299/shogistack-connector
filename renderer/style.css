@@ -32,6 +32,12 @@ body {
   user-select: none;
 }
 
+/* ログ内のテキストは選択可能にする */
+#log-container {
+  user-select: text;
+  cursor: text;
+}
+
 .hidden { display: none !important; }
 
 /* ===== Wizard ===== */
@@ -259,13 +265,21 @@ header h1 {
   display: flex;
   flex-direction: column;
 }
-.log-panel h2 {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 4px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--border-light);
+}
+.log-header h2 {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+  padding: 0;
+  border: none;
 }
 
 #log-container {
