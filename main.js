@@ -354,6 +354,11 @@ async function startEngine(config) {
     proc.stdin.write('isready\n');
     proc.stdin.write('usinewgame\n');
 
+    // ★info行スロットリング: MultiPVごとに最新のみ150ms間隔で送信（NPS改善）
+    let pendingInfoLines = [];
+    let infoFlushTimer = null;
+    const INFO_THROTTLE_MS = 150;
+
     proc.stdout.on('data', (chunk) => {
       const lines = chunk.toString().split('\n');
       for (const line of lines) {
@@ -364,11 +369,24 @@ async function startEngine(config) {
         }
         if (isAnalyzing && trimmed.startsWith('info') && trimmed.includes('score')) {
           if (socket?.connected) {
-            socket.emit('connector_analysis_update', {
-              info: trimmed,
-              sfen: lastSfen,
-              turn: lastTurn
-            });
+            pendingInfoLines.push({ info: trimmed, sfen: lastSfen, turn: lastTurn });
+
+            if (!infoFlushTimer) {
+              infoFlushTimer = setTimeout(() => {
+                // MultiPVごとに最新のinfoだけを送信
+                const latest = new Map();
+                for (const item of pendingInfoLines) {
+                  const mpvMatch = item.info.match(/multipv (\d+)/);
+                  const mpv = mpvMatch ? mpvMatch[1] : '1';
+                  latest.set(mpv, item);
+                }
+                for (const data of latest.values()) {
+                  socket.emit('connector_analysis_update', data);
+                }
+                pendingInfoLines = [];
+                infoFlushTimer = null;
+              }, INFO_THROTTLE_MS);
+            }
           }
         }
       }
