@@ -9,6 +9,21 @@ const { autoUpdater } = require('electron-updater');
 
 const CURRENT_VERSION = `v${require('./package.json').version}`;
 
+function sanitizeDeviceMeta(value, fallback, maxLength) {
+  const cleaned = String(value || '')
+    .replace(/[\r\n\x00-\x1f\x7f<>]/g, '')
+    .trim();
+  return (cleaned || fallback).slice(0, maxLength);
+}
+
+function getConnectorIdentity() {
+  return {
+    deviceName: sanitizeDeviceMeta(os.hostname(), 'Windows PC', 64),
+    platform: sanitizeDeviceMeta(`${os.type()} ${os.arch()}`, 'Windows', 32),
+    version: CURRENT_VERSION,
+  };
+}
+
 // --- 設定ファイル ---
 // Electron標準の userData (%APPDATA%\shogistack-connector) を使用
 function getConfigPath() {
@@ -133,7 +148,7 @@ function connectToServer(config) {
   sendStatus({ connected: false, engineRunning: false });
 
   socket = io(serverUrl, {
-    auth: { type: 'connector', token: config.apiKey }
+    auth: { type: 'connector', token: config.apiKey, ...getConnectorIdentity() }
   });
 
   socket.on('connect', () => {

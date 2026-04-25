@@ -1,3 +1,10 @@
+## v4.2.3 Device Display
+
+- **New: 接続中のPC名をブラウザに表示**
+  - Connector が OS の PC 名、プラットフォーム、Connector 版を接続時に送信
+  - ShogiStack 側の接続パネルで接続中 PC を確認可能
+  - 複数 Connector が同時接続された場合に警告を表示
+
 ## v4.2.2 Security Update
 
 - **Security: Electron を 41.3.0 に更新**
