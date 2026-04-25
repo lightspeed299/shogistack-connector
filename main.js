@@ -8,6 +8,12 @@ const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
 const CURRENT_VERSION = `v${require('./package.json').version}`;
+const UPDATE_CHECK_INITIAL_DELAY_MS = 5 * 1000;
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+let updateInitialCheckTimer = null;
+let updatePeriodicCheckTimer = null;
+let updateCheckInFlight = null;
 
 function sanitizeDeviceMeta(value, fallback, maxLength) {
   const cleaned = String(value || '')
@@ -556,7 +562,7 @@ function setupIPC() {
 
   // --- 自動アップデート ---
   ipcMain.handle('check-for-update', () => {
-    autoUpdater.checkForUpdates().catch(() => {});
+    return checkForConnectorUpdate();
   });
   ipcMain.handle('download-update', () => {
     autoUpdater.downloadUpdate().catch((err) => {
@@ -600,8 +606,13 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  stopUpdateCheckSchedule();
   disconnectFromServer();
   app.quit();
+});
+
+app.on('before-quit', () => {
+  stopUpdateCheckSchedule();
 });
 
 // --- 自動アップデート ---
@@ -637,8 +648,47 @@ function setupAutoUpdater() {
     log(`アップデート確認エラー: ${err.message}`);
   });
 
-  // 起動5秒後にチェック
-  setTimeout(() => {
-    autoUpdater.checkForUpdates().catch(() => {});
-  }, 5000);
+  startUpdateCheckSchedule();
+}
+
+function checkForConnectorUpdate() {
+  if (updateCheckInFlight) {
+    return updateCheckInFlight;
+  }
+
+  try {
+    updateCheckInFlight = autoUpdater.checkForUpdates()
+      .catch(() => null)
+      .finally(() => {
+        updateCheckInFlight = null;
+      });
+  } catch (_) {
+    updateCheckInFlight = null;
+    return Promise.resolve(null);
+  }
+
+  return updateCheckInFlight;
+}
+
+function startUpdateCheckSchedule() {
+  stopUpdateCheckSchedule();
+
+  updateInitialCheckTimer = setTimeout(() => {
+    checkForConnectorUpdate();
+  }, UPDATE_CHECK_INITIAL_DELAY_MS);
+
+  updatePeriodicCheckTimer = setInterval(() => {
+    checkForConnectorUpdate();
+  }, UPDATE_CHECK_INTERVAL_MS);
+}
+
+function stopUpdateCheckSchedule() {
+  if (updateInitialCheckTimer) {
+    clearTimeout(updateInitialCheckTimer);
+    updateInitialCheckTimer = null;
+  }
+  if (updatePeriodicCheckTimer) {
+    clearInterval(updatePeriodicCheckTimer);
+    updatePeriodicCheckTimer = null;
+  }
 }
