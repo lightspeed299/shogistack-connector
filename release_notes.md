@@ -1,3 +1,11 @@
+## v4.2.2 Security Update
+
+- **Security: Electron を 41.3.0 に更新**
+  - 旧 Electron 30 系に残っていた high severity の脆弱性を解消
+  - Connector 単体の `npm audit` で high / critical / moderate / low すべて 0 件を確認
+- **Maintenance: リリース定義を package.json に反映**
+  - 自動更新で配布されるアプリ表示版も `v4.2.2` に更新
+
 ## v4.0.7 Engine Settings Sync
 
 - **New: エンジン設定のConnector→ブラウザ同期**
